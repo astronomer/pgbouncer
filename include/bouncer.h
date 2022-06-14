@@ -46,6 +46,11 @@
 /* global libevent handle */
 extern struct event_base *pgb_event_base;
 
+#ifdef HAVE_GSSAPI_H
+#include <gssapi/gssapi.h>
+#include <gssapi/gssapi_ext.h>
+#include <gssapi/gssapi_krb5.h>
+#endif
 
 /* each state corresponds to a list */
 enum SocketState {
@@ -162,8 +167,8 @@ extern int cf_sbuf_len;
 #define AUTH_CRYPT	4	/* not supported */
 #define AUTH_MD5	5
 #define AUTH_SCM_CREDS	6	/* not supported */
-#define AUTH_GSS	7	/* not supported */
-#define AUTH_GSS_CONT	8	/* not supported */
+#define AUTH_GSS	7
+#define AUTH_GSS_CONT	8
 #define AUTH_SSPI	9	/* not supported */
 #define AUTH_SASL	10
 #define AUTH_SASL_CONT	11
@@ -443,6 +448,24 @@ struct PgSocket {
 		uint8_t ServerKey[32];
 	} scram_state;
 
+	#ifdef HAVE_GSS
+        struct GSSState {
+               enum {
+                      GSS_INITIAL,
+                      GSS_CONTINUE,
+                      GSS_DONE
+               } state;
+               gss_cred_id_t server_credentials;
+               gss_cred_id_t delegated_credentials;
+               gss_buffer_desc outbuf; /* GSSAPI output token buffer */
+               gss_cred_id_t cred;     /* GSSAPI connection cred's */
+               gss_ctx_id_t ctx;       /* GSSAPI connection context */
+               gss_name_t name;        /* GSSAPI client name */
+               gss_buffer_desc client_name; /* Tempoary */
+               OM_uint32 flags;
+        } gss;
+	#endif
+
 	VarCache vars;		/* state of interesting server parameters */
 
 	SBuf sbuf;		/* stream buffer, must be last */
@@ -511,6 +534,7 @@ extern char *cf_auth_file;
 extern char *cf_auth_query;
 extern char *cf_auth_user;
 extern char *cf_auth_hba_file;
+extern char *cf_krb_server_keyfile;
 
 extern char *cf_pidfile;
 

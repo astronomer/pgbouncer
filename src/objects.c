@@ -914,6 +914,16 @@ void disconnect_server(PgSocket *server, bool send_term, const char *reason, ...
 void disconnect_client(PgSocket *client, bool notify, const char *reason, ...)
 {
 	usec_t now = get_cached_time();
+#ifdef HAVE_GSS
+  OM_uint32 min_stat;
+  /* Server credentials (keytab context) might be better to store once globally
+   * but this encapsulation feels safer, currently */
+  if ((GSS_C_NO_CREDENTIAL != client->gss.server_credentials) &&
+      (client->client_auth_type == AUTH_GSS)) {
+          slog_debug(client, "Cleaning up GSSAPI server credentials");
+          gss_release_cred(&min_stat, &client->gss.server_credentials);
+  }
+#endif
 
 	if (reason) {
 		char buf[128];
