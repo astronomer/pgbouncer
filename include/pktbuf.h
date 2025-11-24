@@ -38,6 +38,11 @@ struct PktBuf {
 	bool fixed_buf : 1;
 };
 
+/* PostgreSQL frontend packet header:
+ * 1 byte tag + 4-byte length word + 4-byte payload length for ‘p’ messages
+ */
+#define PG_PACKET_HDR_GSS 8
+
 /*
  * pktbuf creation
  */
@@ -115,6 +120,9 @@ void pktbuf_write_ExtQuery(PktBuf *buf, const char *query, int nargs, ...);
 #define pkgbuf_write_SASLResponseMessage(buf, cr) \
 	pktbuf_write_generic(buf, PqMsg_SASLResponse, "b", cr, strlen(cr))
 
+#define pkgbuf_write_GSSResponseMessage(buf, cr, cr_len) \
+	pktbuf_write_generic(buf, 'p', "b", cr, cr_len)
+
 #define pktbuf_write_Notice(buf, msg) \
 	pktbuf_write_generic(buf, PqMsg_NoticeResponse, "sscss", "SNOTICE", "C00000", 'M', msg, "");
 
@@ -185,6 +193,9 @@ void pktbuf_write_ExtQuery(PktBuf *buf, const char *query, int nargs, ...);
 
 #define SEND_SASLResponseMessage(res, sk, cr) \
 	SEND_wrap(512, pkgbuf_write_SASLResponseMessage, res, sk, cr)
+
+#define SEND_GSSResponseMessage(res, sk, cr, cr_len) \
+	SEND_wrap(PG_PACKET_HDR_GSS + cr_len, pkgbuf_write_GSSResponseMessage, res, sk, cr, cr_len)
 
 #define SEND_CloseComplete(res, sk) \
 	SEND_wrap(5, pktbuf_write_CloseComplete, res, sk)
