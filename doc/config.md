@@ -927,6 +927,22 @@ Allowed values: `none` (DH is disabled), `auto` (2048-bit DH), `legacy` (1024-bi
 
 Default: `auto`
 
+### server_gssauth_negotiate
+
+Whether pgbouncer should attempt to negotiate GSSAPI (kerberos) authentication with the upstream postgres server.
+
+Allowed values: `disable`, `allow`
+
+Default: `disable`
+
+### server_krb_spn = 
+
+What kerberos service-principal pgbouncer should demand be presented by the upstream postgres server.
+
+Does not apply if server_gssauth_negotiate is set to `disable`
+
+Default: blank, auto-generates by default, equivalent to `postgres/<canonicalized-hostname of postgres server>@<default kerberos realm from libkrb5>`.
+
 ### server_tls_sslmode
 
 TLS mode to use for connections to PostgreSQL servers.  The default mode is
@@ -1281,6 +1297,14 @@ Default: not set, meaning to use a Unix socket
 ### port
 
 Default: 5432
+
+### server_krb_spn = 
+
+What kerberos service-principal pgbouncer should demand be presented by the upstream postgres server.
+
+Does not apply if server_gssauth_negotiate is set to `disable`
+
+Default: blank, auto-generates by default, equivalent to `postgres/<canonicalized-hostname of postgres server>@<default kerberos realm from libkrb5>`.
 
 ### user
 

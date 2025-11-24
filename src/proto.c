@@ -23,6 +23,8 @@
 #include "bouncer.h"
 #include "scram.h"
 #include "common/sha2.h"
+#include "gssauth.h"
+#include "gssapi.h"
 
 /*
  * parse protocol header from struct MBuf
@@ -536,6 +538,42 @@ bool answer_authreq(PgSocket *server, PktHdr *pkt)
 			return false;
 		res = login_md5_psw(server, salt);
 		break;
+	case AUTH_REQ_GSS:
+	{
+		unsigned len;
+		const uint8_t *data;
+
+		if (cf_server_gssauth_negotiate != SERVER_GSSAUTH_ALLOW) {
+			slog_debug(server, "gss auth request received but server_gssauth_negotiate not set to allow: %u", cmd);
+			res = false;
+			break;
+		}
+
+		slog_debug(server, "S: req GSS");
+		len = mbuf_avail_for_read(&pkt->data);
+		if (!mbuf_get_bytes(&pkt->data, len, &data))
+			return false;
+		res = gss_auth_step(server, len, data);
+		break;
+	}
+	case AUTH_REQ_GSS_CONT:
+	{
+		unsigned len;
+		const uint8_t *data;
+
+		if (cf_server_gssauth_negotiate != SERVER_GSSAUTH_ALLOW) {
+			slog_debug(server, "gss continuation received but server_gssauth_negotiate not set to allow: %u", cmd);
+			res = false;
+			break;
+		}
+
+		slog_debug(server, "S: req GSS continuation");
+		len = mbuf_avail_for_read(&pkt->data);
+		if (!mbuf_get_bytes(&pkt->data, len, &data))
+			return false;
+		res = gss_auth_step(server, len, data);
+		break;
+	}
 	case AUTH_REQ_SASL:
 	{
 		bool selected_mechanism = false;

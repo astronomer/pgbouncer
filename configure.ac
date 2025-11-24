@@ -115,6 +115,34 @@ if test "$with_systemd" = yes; then
   AC_SEARCH_LIBS(sd_notify, systemd)
 fi
 
+dnl Check for GSSAPI authentication support
+gss_support=no
+AC_ARG_WITH(gss,
+  AC_HELP_STRING([--with-gss], [build with GSSAPI support]),
+  [ GSS=
+    if test "$withval" != no; then
+      # Look for GSSAPI header and lib
+      AC_CHECK_HEADERS(gssapi.h, [have_gss_header=y])
+      AC_SEARCH_LIBS(gss_accept_sec_context, [gssapi_krb5 gssapi], [have_libgss=t])
+      if test x"${have_gss_header}" != x -a x"${have_libgss}" != x; then
+        gss_support=yes
+        AC_DEFINE(HAVE_GSS, 1, [GSSAPI support])
+
+        dnl ---- now check for the Kerberos 5 library itself ----
+        AC_CHECK_LIB(krb5, krb5_init_context,
+          [ krb5_support=yes
+            AC_DEFINE(HAVE_KRB5, 1, [Kerberos 5 library found]) ],
+          [ krb5_support=no
+            AC_MSG_WARN([Kerberos 5 library not found; default‐realm support will be disabled]) ]
+        )
+        if test "$krb5_support" = yes; then
+          AC_SUBST([KRB5_LIBS], [-lkrb5])
+          LDFLAGS="$LDFLAGS $KRB5_LIBS"
+        fi
+      fi
+    fi
+  ], [])
+
 ##
 ## DNS backend
 ##
@@ -213,8 +241,11 @@ elif test "$ac_cv_usual_glibc_gaia" = "yes"; then
 else
   echo "  adns    = compat"
 fi
+echo "  pam     = $pam_support"
+echo "  gss     = $gss_support"
 echo "  ldap    = $ldap_support"
 echo "  pam     = $pam_support"
 echo "  systemd = $with_systemd"
+echo "  krb5    = $krb5_support"
 echo "  tls     = $tls_support"
 echo ""

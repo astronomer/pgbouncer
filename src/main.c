@@ -101,6 +101,8 @@ int cf_peer_id;
 
 int cf_pool_mode = POOL_SESSION;
 
+enum ServerGssAuth cf_server_gssauth_negotiate = SERVER_GSSAUTH_DISABLE;
+
 /* sbuf config */
 int cf_sbuf_len;
 int cf_sbuf_loopcnt;
@@ -204,6 +206,8 @@ char *cf_server_tls_key_file;
 char *cf_server_tls_ciphers;
 char *cf_server_tls13_ciphers;
 
+char *cf_server_krb_spn;
+
 int cf_max_prepared_statements;
 
 int cf_scram_iterations;
@@ -246,6 +250,12 @@ const struct CfLookup sslmode_map[] = {
 	{ "require", SSLMODE_REQUIRE },
 	{ "verify-ca", SSLMODE_VERIFY_CA },
 	{ "verify-full", SSLMODE_VERIFY_FULL },
+	{ NULL }
+};
+
+const struct CfLookup server_gssauth_negotiate_map[] = {
+	{ "disable", SERVER_GSSAUTH_DISABLE },
+	{ "allow", SERVER_GSSAUTH_ALLOW },
 	{ NULL }
 };
 
@@ -323,7 +333,9 @@ static const struct CfKey bouncer_params [] = {
 	CF_ABS("server_check_query", CF_STR, cf_server_check_query, 0, "<empty>"),
 	CF_ABS("server_connect_timeout", CF_TIME_USEC, cf_server_connect_timeout, 0, "15"),
 	CF_ABS("server_fast_close", CF_INT, cf_server_fast_close, 0, "0"),
+	CF_ABS("server_gssauth_negotiate", CF_LOOKUP(server_gssauth_negotiate_map), cf_server_gssauth_negotiate, 0, "disable"),
 	CF_ABS("server_idle_timeout", CF_TIME_USEC, cf_server_idle_timeout, 0, "600"),
+	CF_ABS("server_krb_spn", CF_STR, cf_server_krb_spn, 0, ""),
 	CF_ABS("server_lifetime", CF_TIME_USEC, cf_server_lifetime, 0, "3600"),
 	CF_ABS("server_login_retry", CF_TIME_USEC, cf_server_login_retry, 0, "15"),
 	CF_ABS("server_reset_query", CF_STR, cf_server_reset_query, 0, "DISCARD ALL"),
@@ -1012,6 +1024,7 @@ static void cleanup(void)
 	xfree(&cf_server_tls_key_file);
 	xfree(&cf_server_tls_ciphers);
 	xfree(&cf_server_tls13_ciphers);
+	xfree(&cf_server_krb_spn);
 
 	xfree((char **)&cf_logfile);
 	xfree((char **)&cf_syslog_ident);
@@ -1168,7 +1181,11 @@ int main(int argc, char *argv[])
 	}
 
 	write_pidfile();
-
+	if (cf_server_gssauth_negotiate == SERVER_GSSAUTH_ALLOW) {
+		log_info("GSSAPI auth-negotiation to upstream postgres server is enabled");
+		// check to see if cf_server_krb_spn is not empty just the var
+		log_info("Upstream Postgres Server Kerberos SPN: %s", (cf_server_krb_spn && *cf_server_krb_spn) ? cf_server_krb_spn : "<auto-detect>");
+	}
 	log_info("process up: %s, libevent %s (%s), adns: %s, tls: %s", PACKAGE_STRING,
 		 event_get_version(), event_base_get_method(pgb_event_base), adns_get_backend(),
 		 tls_backend_version());

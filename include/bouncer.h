@@ -61,10 +61,20 @@
 #define sd_notifyf(ue, f, ...)
 #endif
 
+#ifdef HAVE_GSSAPI_H
+#include <gssapi/gssapi.h>
+#include <gssapi/gssapi_ext.h>
+#include <gssapi/gssapi_krb5.h>
+#endif
+
 
 /* global libevent handle */
 extern struct event_base *pgb_event_base;
 
+enum ServerGssAuth {
+	SERVER_GSSAUTH_DISABLE,		/* no GSSAPI auth */
+	SERVER_GSSAUTH_ALLOW,		/* GSSAPI auth enabled */
+};
 
 /* each state corresponds to a list */
 enum SocketState {
@@ -159,6 +169,7 @@ typedef struct PgDatabase PgDatabase;
 typedef struct PgPool PgPool;
 typedef struct PgStats PgStats;
 typedef union PgAddr PgAddr;
+typedef enum ServerGssAuth ServerGssAuth;
 typedef enum SocketState SocketState;
 typedef enum PacketCallbackFlag PacketCallbackFlag;
 typedef struct PktHdr PktHdr;
@@ -581,6 +592,7 @@ struct PgDatabase {
 	 * configuration
 	 */
 	char *host;		/* host or unix socket name */
+	char *server_krb_spn;
 	int port;
 	int pool_size;		/* max server connections in one pool */
 	int min_pool_size;	/* min server connections in one pool */
@@ -757,6 +769,25 @@ struct PgSocket {
 	char ldap_options[MAX_LDAP_CONFIG];
 #endif
 
+#ifdef HAVE_GSS
+	struct GSSState {
+		enum {
+			GSS_INITIAL,
+			GSS_CONTINUE,
+			GSS_DONE
+		} state;
+		gss_cred_id_t server_credentials;
+		gss_cred_id_t delegated_credentials;
+		gss_buffer_desc outbuf;		/* GSSAPI output token buffer */
+		gss_cred_id_t cred;		/* GSSAPI connection cred's */
+		gss_ctx_id_t ctx;		/* GSSAPI connection context */
+		gss_name_t name;		/* GSSAPI client name */
+		gss_buffer_desc client_name;		/* Tempoary */
+		OM_uint32 flags;
+	} gss;
+#endif
+
+
 	VarCache vars;		/* state of interesting server parameters */
 
 	/* client: prepared statements prepared by this client */
@@ -830,6 +861,8 @@ extern char *cf_server_check_query;
 extern bool empty_server_check_query;
 extern usec_t cf_server_check_delay;
 extern int cf_server_fast_close;
+extern enum ServerGssAuth cf_server_gssauth_negotiate;
+extern char *cf_server_krb_spn;
 extern usec_t cf_server_connect_timeout;
 extern usec_t cf_server_login_retry;
 extern usec_t cf_query_timeout;
