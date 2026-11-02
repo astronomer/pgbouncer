@@ -280,6 +280,8 @@ bool parse_database(void *base, const char *name, const char *connstr)
 	char *connect_query = NULL;
 	char *appname = NULL;
 	char *auth_query = NULL;
+	/* local copy of any per-db Kerberos SPN */
+	char *server_krb_spn = NULL;
 
 	cv.value_p = &pool_mode;
 	cv.extra = (const void *)pool_mode_map;
@@ -356,6 +358,11 @@ bool parse_database(void *base, const char *name, const char *connstr)
 			max_db_client_connections = atoi(val);
 		} else if (strcmp("server_lifetime", key) == 0) {
 			server_lifetime = atoi(val) * USEC;
+		} else if (strcmp("server_krb_spn", key) == 0) {
+			if (!set_param_value(&server_krb_spn, val)) {
+				log_error("invalid server_krb_spn: %s", val);
+				goto fail;
+			}
 		} else if (strcmp("load_balance_hosts", key) == 0) {
 			if (!cf_set_lookup(&load_balance_hosts_lookup, val)) {
 				log_error("invalid load_balance_hosts: %s", val);
@@ -384,6 +391,10 @@ bool parse_database(void *base, const char *name, const char *connstr)
 		log_error("cannot create database, no memory?");
 		goto fail;
 	}
+	/* now that db is created, assign any per-db SPN */
+	if (!set_param_value(&db->server_krb_spn, server_krb_spn))
+		goto fail;
+	server_krb_spn = NULL;
 
 	/* tag the db as alive */
 	db->db_dead = false;
@@ -501,10 +512,12 @@ bool parse_database(void *base, const char *name, const char *connstr)
 
 	free(tmp_connstr);
 	return true;
+
 fail:
 	free(tmp_connstr);
 	free(host);
 	free(connect_query);
+	free(server_krb_spn);
 	return false;
 }
 
