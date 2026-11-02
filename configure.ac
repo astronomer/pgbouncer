@@ -118,7 +118,7 @@ fi
 dnl Check for GSSAPI authentication support
 gss_support=no
 AC_ARG_WITH(gss,
-  AC_HELP_STRING([--with-gss], [build with GSSAPI support]),
+  AS_HELP_STRING([--with-gss], [build with GSSAPI support]),
   [ GSS=
     if test "$withval" != no; then
       # Look for GSSAPI header and lib
